@@ -1,6 +1,6 @@
 # LeafletAI
 
-A dynamic 3D flipbook viewer for InDesign/Illustrator exports with Gemini AI integration.
+A dynamic 3D flipbook viewer for InDesign/Illustrator exports.
 
 ## Setup
 
@@ -9,12 +9,7 @@ A dynamic 3D flipbook viewer for InDesign/Illustrator exports with Gemini AI int
    npm install
    ```
 
-2. Create a `.env` file in the root directory with your API key:
-   ```
-   API_KEY=your_google_gemini_api_key
-   ```
-
-3. Run development server:
+2. Run development server:
    ```bash
    npm run dev
    ```
@@ -25,5 +20,4 @@ This project is configured for deployment on Vercel.
 
 1. Push to GitHub.
 2. Import project in Vercel.
-3. Add `API_KEY` in Vercel Project Settings > Environment Variables.
-4. Deploy.
+3. Deploy.

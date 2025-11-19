@@ -1,164 +1,202 @@
-import React, { useState, useEffect } from 'react';
-import { LeafletPage } from '../types';
+import React, { useRef, useEffect, useState, useCallback } from 'react';
+import HTMLFlipBook from 'react-pageflip';
+import { PageImage } from '../types';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface FlipbookProps {
-  pages: LeafletPage[];
-  onPageChange: (index: number) => void;
+  pages: PageImage[];
 }
 
-export const Flipbook: React.FC<FlipbookProps> = ({ pages, onPageChange }) => {
-  // Current index represents the index of the sheet displayed on the RIGHT side being active.
-  // 0 means cover is closed (if we had a cover) or first page is on right.
+export const Flipbook: React.FC<FlipbookProps> = ({ pages }) => {
+  const flipBook = useRef<any>(null);
   const [currentPage, setCurrentPage] = useState(0);
-  
-  // Total sheets needed (2 pages per sheet)
-  const totalSheets = Math.ceil(pages.length / 2);
+  const totalPages = pages.length;
 
-  const handleNext = () => {
-    if (currentPage < totalSheets) {
-      const next = currentPage + 1;
-      setCurrentPage(next);
-      onPageChange(Math.min(next * 2 - 1, pages.length - 1)); 
-    }
+  const handleFlip = (e: any) => {
+    const page = e.data;
+    setCurrentPage(page);
   };
 
-  const handlePrev = () => {
-    if (currentPage > 0) {
-      const prev = currentPage - 1;
-      setCurrentPage(prev);
-      onPageChange(Math.max(prev * 2 - 2, 0));
+  const handleNext = useCallback(() => {
+    if (flipBook.current && currentPage < totalPages - 1) {
+      flipBook.current.pageFlip().flipNext();
     }
+  }, [currentPage, totalPages]);
+
+  const handlePrev = useCallback(() => {
+    if (flipBook.current && currentPage > 0) {
+      flipBook.current.pageFlip().flipPrev();
+    }
+  }, [currentPage, totalPages]);
+
+  // Calculate dimensions to maximize book size
+  // Images are 1689×3000 (width×height), so aspect ratio is ~0.563
+  const getPageSize = () => {
+    const viewportHeight = window.innerHeight;
+    const viewportWidth = window.innerWidth;
+    const imageAspectRatio = 1689 / 3000; // ~0.563
+    const isMobile = viewportWidth < 768; // Mobile breakpoint
+    
+    // Reserve space for navigation bar at bottom (80px on desktop, 70px on mobile)
+    const navBarHeight = isMobile ? 70 : 80;
+    const availableHeight = viewportHeight - navBarHeight;
+    
+    // On mobile, use more of the available height (95%), on desktop use 90%
+    const heightPercentage = isMobile ? 0.95 : 0.9;
+    let targetPageHeight = availableHeight * heightPercentage;
+    let pageWidth = targetPageHeight * imageAspectRatio;
+    
+    if (isMobile) {
+      // On mobile: show single page, scale to fit width
+      const widthPercentage = 0.98;
+      const availableWidth = viewportWidth * widthPercentage;
+      
+      // If single page is too wide, scale down to fit
+      if (pageWidth > availableWidth) {
+        const scale = availableWidth / pageWidth;
+        pageWidth = pageWidth * scale;
+        targetPageHeight = targetPageHeight * scale;
+      }
+    } else {
+      // On desktop: show double-page spread
+      // Total width needed = 2 * pageWidth
+      const totalWidthNeeded = pageWidth * 2;
+      const availableWidth = viewportWidth * 0.95;
+      
+      // If the double-page spread is too wide, scale down to fit
+      if (totalWidthNeeded > availableWidth) {
+        const scale = availableWidth / totalWidthNeeded;
+        pageWidth = pageWidth * scale;
+        targetPageHeight = targetPageHeight * scale;
+      }
+    }
+    
+    return {
+      width: Math.floor(pageWidth),
+      height: Math.floor(targetPageHeight),
+    };
   };
 
-  // Keydown listener for navigation
+  const [pageSize, setPageSize] = useState(getPageSize());
+  const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' && window.innerWidth < 768);
+
+  useEffect(() => {
+    const handleResize = () => {
+      const mobile = window.innerWidth < 768;
+      setIsMobile(mobile);
+      setPageSize(getPageSize());
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // Handle keyboard navigation
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'ArrowRight') handleNext();
-      if (e.key === 'ArrowLeft') handlePrev();
+      if (e.key === 'ArrowRight') {
+        handleNext();
+      } else if (e.key === 'ArrowLeft') {
+        handlePrev();
+      }
     };
+
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [currentPage, totalSheets]);
-
-  // Dynamic style for 9:16 Aspect Ratio containment
-  // We ensure the single page fits within the viewport, considering a 2-page spread width.
-  // max-width: 45vw ensures that 2 pages side-by-side (90vw) fit on screen horizontally.
-  // height: 80vh ensures it fits vertically.
-  const bookDimensions = {
-    height: '80vh',
-    width: 'auto',
-    aspectRatio: '9/16',
-    maxHeight: '850px',
-    maxWidth: '45vw' 
-  };
+  }, [handleNext, handlePrev]);
 
   return (
-    <div className="relative w-full h-full flex items-center justify-center perspective-3000 select-none overflow-visible py-8">
-      
-      {/* Controls - Floating */}
-      <button 
-        onClick={handlePrev} 
-        disabled={currentPage === 0}
-        className={`absolute left-4 lg:left-8 z-50 p-3 lg:p-4 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-white hover:bg-white/20 transition-all hover:scale-110 shadow-lg ${currentPage === 0 ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}
-      >
-        <ChevronLeft size={24} className="lg:w-8 lg:h-8" />
-      </button>
-
-      <button 
-        onClick={handleNext} 
-        disabled={currentPage === totalSheets}
-        className={`absolute right-4 lg:right-8 z-50 p-3 lg:p-4 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-white hover:bg-white/20 transition-all hover:scale-110 shadow-lg ${currentPage === totalSheets ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}
-      >
-        <ChevronRight size={24} className="lg:w-8 lg:h-8" />
-      </button>
-
-      {/* The Book Stack (Represents the Right side stack) */}
-      <div 
-        className="relative preserve-3d"
-        style={bookDimensions}
-      >
-        {/* Central Spine visual aid */}
-        {/* Replaced white line with thinner dark grey line, maintaining shadow effect */}
-        <div className="absolute left-0 top-0 bottom-0 w-[1px] bg-gray-800 opacity-50 shadow-[0_0_12px_rgba(0,0,0,0.5)] z-10 transform -translate-x-1/2"></div>
-
-        {/* Render Sheets */}
-        {Array.from({ length: totalSheets }).map((_, i) => {
-          const index = i;
-          const pageFrontIndex = index * 2; 
-          const pageBackIndex = index * 2 + 1;
-          
-          const frontPage = pages[pageFrontIndex];
-          const backPage = pages[pageBackIndex];
-          
-          const isFlipped = index < currentPage;
-          
-          // Z-Index Logic
-          let zIndex = 0;
-          if (index < currentPage) {
-             // Left stack: Higher index is ON TOP
-             zIndex = index;
-          } else {
-             // Right stack: Lower index is ON TOP
-             zIndex = totalSheets - index;
-          }
-
-          return (
-            <div
-              key={index}
-              className={`absolute top-0 left-0 w-full h-full origin-left duration-1000 preserve-3d cursor-pointer group`}
-              style={{ 
-                zIndex: zIndex,
-                transform: isFlipped ? 'rotateY(-180deg)' : 'rotateY(0deg)',
-                transitionTimingFunction: 'cubic-bezier(0.645, 0.045, 0.355, 1.000)' // Smooth "page turn" feel
-              }}
-              onClick={() => {
-                if (!isFlipped) handleNext();
-                else handlePrev();
-              }}
-            >
-              {/* Front of the sheet (Right Page) */}
-              <div className="absolute inset-0 backface-hidden bg-white overflow-hidden rounded-r-[2px] border-l border-gray-200 shadow-md">
-                 {frontPage ? (
-                   <img 
-                    src={frontPage.imageUrl} 
-                    alt={`Page ${pageFrontIndex + 1}`} 
-                    className="w-full h-full object-cover" 
-                   />
-                 ) : (
-                   <div className="w-full h-full bg-gray-50 flex items-center justify-center text-gray-400">Blank</div>
-                 )}
-                 
-                 {/* Dynamic Lighting/Gradients */}
-                 {/* Spine shadow gradient */}
-                 <div className="absolute inset-y-0 left-0 w-8 bg-gradient-to-r from-black/20 to-transparent pointer-events-none opacity-40" />
-                 {/* Gloss reflection */}
-                 <div className="absolute inset-0 bg-gradient-to-tr from-white/0 via-white/5 to-white/0 pointer-events-none mix-blend-overlay opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-              </div>
-
-              {/* Back of the sheet (Left Page) */}
-              <div 
-                className="absolute inset-0 backface-hidden bg-white overflow-hidden rounded-l-[2px] border-r border-gray-200 shadow-md"
-                style={{ transform: 'rotateY(180deg)' }}
-              >
-                {backPage ? (
-                   <img 
-                    src={backPage.imageUrl} 
-                    alt={`Page ${pageBackIndex + 1}`} 
-                    className="w-full h-full object-cover" 
-                   />
-                 ) : (
-                   <div className="w-full h-full bg-white flex items-center justify-center text-gray-300 font-serif italic">End</div>
-                 )}
-                 
-                 {/* Spine shadow gradient (on right side for left page) */}
-                 <div className="absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-black/20 to-transparent pointer-events-none opacity-40" />
-                 {/* Gloss reflection */}
-                 <div className="absolute inset-0 bg-gradient-to-tl from-white/0 via-white/5 to-white/0 pointer-events-none mix-blend-overlay opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-              </div>
+    <div className="w-full h-full flex flex-col relative">
+      {/* Flipbook Container */}
+      <div className="flex-1 flex items-center justify-center">
+        <HTMLFlipBook
+          ref={flipBook}
+          width={pageSize.width}
+          height={pageSize.height}
+          minWidth={200}
+          maxWidth={3000}
+          minHeight={300}
+          maxHeight={4000}
+          size="fixed"
+          startPage={0}
+          drawShadow={false}
+          flippingTime={800}
+          usePortrait={isMobile}
+          startZIndex={0}
+          autoSize={false}
+          maxShadowOpacity={0}
+          showCover={true}
+          mobileScrollSupport={true}
+          clickEventForward={true}
+          useMouseEvents={true}
+          swipeDistance={30}
+          showPageCorners={true}
+          disableFlipByClick={false}
+          onFlip={handleFlip}
+          className=""
+          style={{}}
+        >
+          {pages.map((page, index) => (
+            <div key={index} className="page bg-white flex items-center justify-center">
+              <img
+                src={page.src}
+                alt={`Page ${index + 1}`}
+                style={{
+                  height: '100%',
+                  width: 'auto',
+                  objectFit: 'contain',
+                }}
+                draggable={false}
+              />
             </div>
-          );
-        })}
+          ))}
+        </HTMLFlipBook>
+      </div>
+
+      {/* Navigation Bar */}
+      <div className="absolute bottom-0 left-0 right-0 bg-black/80 backdrop-blur-sm border-t border-white/10 py-3 px-6 z-50">
+        <div className="max-w-4xl mx-auto flex items-center justify-between gap-4">
+          {/* Prev Button */}
+          <button
+            onClick={handlePrev}
+            disabled={currentPage === 0}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all ${
+              currentPage === 0
+                ? 'opacity-50 cursor-not-allowed text-gray-400'
+                : 'text-white hover:bg-white/10 active:bg-white/20'
+            }`}
+          >
+            <ChevronLeft size={20} />
+            <span className="hidden sm:inline">Previous</span>
+          </button>
+
+          {/* Progress Bar and Page Info */}
+          <div className="flex-1 flex flex-col items-center gap-2">
+            <div className="w-full max-w-md h-2 bg-white/20 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-white transition-all duration-300"
+                style={{ width: `${((currentPage + 1) / totalPages) * 100}%` }}
+              />
+            </div>
+            <div className="text-white text-sm">
+              Page {currentPage + 1} of {totalPages}
+            </div>
+          </div>
+
+          {/* Next Button */}
+          <button
+            onClick={handleNext}
+            disabled={currentPage === totalPages - 1}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all ${
+              currentPage === totalPages - 1
+                ? 'opacity-50 cursor-not-allowed text-gray-400'
+                : 'text-white hover:bg-white/10 active:bg-white/20'
+            }`}
+          >
+            <span className="hidden sm:inline">Next</span>
+            <ChevronRight size={20} />
+          </button>
+        </div>
       </div>
     </div>
   );

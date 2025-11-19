@@ -1,5 +1,4 @@
 {
-  "name": "Copy of LeafletAI - Interactive Flipbook Viewer",
-  "description": "A dynamic 3D flipbook viewer for InDesign/Illustrator exports with Gemini AI page analysis.",
-  "requestFramePermissions": []
+  "name": "Page Turning Viewer",
+  "description": "A simple, beautiful page-turning viewer for viewing images in a magazine-style format."
 }
