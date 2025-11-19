@@ -1,11 +1,29 @@
-<div align="center">
+# LeafletAI
 
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
+A dynamic 3D flipbook viewer for InDesign/Illustrator exports with Gemini AI integration.
 
-  <h1>Built with AI Studio</h2>
+## Setup
 
-  <p>The fastest path from prompt to production with Gemini.</p>
+1. Install dependencies:
+   ```bash
+   npm install
+   ```
 
-  <a href="https://aistudio.google.com/apps">Start building</a>
+2. Create a `.env` file in the root directory with your API key:
+   ```
+   API_KEY=your_google_gemini_api_key
+   ```
 
-</div>
+3. Run development server:
+   ```bash
+   npm run dev
+   ```
+
+## Deployment
+
+This project is configured for deployment on Vercel.
+
+1. Push to GitHub.
+2. Import project in Vercel.
+3. Add `API_KEY` in Vercel Project Settings > Environment Variables.
+4. Deploy.
