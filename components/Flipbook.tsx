@@ -1,7 +1,7 @@
-import React, { useRef, useEffect, useState, useCallback } from 'react';
-import HTMLFlipBook from 'react-pageflip';
-import { PageImage } from '../types';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import React, { useRef, useEffect, useState, useCallback } from "react";
+import HTMLFlipBook from "react-pageflip";
+import { PageImage } from "../types";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 
 interface FlipbookProps {
   pages: PageImage[];
@@ -36,21 +36,21 @@ export const Flipbook: React.FC<FlipbookProps> = ({ pages }) => {
     const viewportWidth = window.innerWidth;
     const imageAspectRatio = 1689 / 3000; // ~0.563
     const isMobile = viewportWidth < 768; // Mobile breakpoint
-    
-    // Reserve space for navigation bar at bottom (80px on desktop, 70px on mobile)
-    const navBarHeight = isMobile ? 70 : 80;
+
+    // Reserve space for navigation bar at bottom (only on mobile)
+    const navBarHeight = isMobile ? 70 : 0;
     const availableHeight = viewportHeight - navBarHeight;
-    
-    // On mobile, use more of the available height (95%), on desktop use 90%
-    const heightPercentage = isMobile ? 0.95 : 0.9;
+
+    // On both mobile and desktop, use 100% of available height
+    const heightPercentage = 1.0;
     let targetPageHeight = availableHeight * heightPercentage;
     let pageWidth = targetPageHeight * imageAspectRatio;
-    
+
     if (isMobile) {
       // On mobile: show single page, scale to fit width
       const widthPercentage = 0.98;
       const availableWidth = viewportWidth * widthPercentage;
-      
+
       // If single page is too wide, scale down to fit
       if (pageWidth > availableWidth) {
         const scale = availableWidth / pageWidth;
@@ -62,7 +62,7 @@ export const Flipbook: React.FC<FlipbookProps> = ({ pages }) => {
       // Total width needed = 2 * pageWidth
       const totalWidthNeeded = pageWidth * 2;
       const availableWidth = viewportWidth * 0.95;
-      
+
       // If the double-page spread is too wide, scale down to fit
       if (totalWidthNeeded > availableWidth) {
         const scale = availableWidth / totalWidthNeeded;
@@ -70,7 +70,7 @@ export const Flipbook: React.FC<FlipbookProps> = ({ pages }) => {
         targetPageHeight = targetPageHeight * scale;
       }
     }
-    
+
     return {
       width: Math.floor(pageWidth),
       height: Math.floor(targetPageHeight),
@@ -78,7 +78,9 @@ export const Flipbook: React.FC<FlipbookProps> = ({ pages }) => {
   };
 
   const [pageSize, setPageSize] = useState(getPageSize());
-  const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' && window.innerWidth < 768);
+  const [isMobile, setIsMobile] = useState(
+    typeof window !== "undefined" && window.innerWidth < 768
+  );
 
   useEffect(() => {
     const handleResize = () => {
@@ -87,28 +89,34 @@ export const Flipbook: React.FC<FlipbookProps> = ({ pages }) => {
       setPageSize(getPageSize());
     };
 
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
   }, []);
 
   // Handle keyboard navigation
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'ArrowRight') {
+      if (e.key === "ArrowRight") {
         handleNext();
-      } else if (e.key === 'ArrowLeft') {
+      } else if (e.key === "ArrowLeft") {
         handlePrev();
       }
     };
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
   }, [handleNext, handlePrev]);
 
   return (
     <div className="w-full h-full flex flex-col relative">
       {/* Flipbook Container */}
-      <div className="flex-1 flex items-center justify-center">
+      <div
+        className={`flex-1 flex ${
+          isMobile
+            ? "items-start justify-center pt-0"
+            : "items-center justify-center"
+        }`}
+      >
         <HTMLFlipBook
           ref={flipBook}
           width={pageSize.width}
@@ -119,12 +127,12 @@ export const Flipbook: React.FC<FlipbookProps> = ({ pages }) => {
           maxHeight={4000}
           size="fixed"
           startPage={0}
-          drawShadow={false}
+          drawShadow={true}
           flippingTime={800}
           usePortrait={isMobile}
           startZIndex={0}
           autoSize={false}
-          maxShadowOpacity={0}
+          maxShadowOpacity={0.6}
           showCover={true}
           mobileScrollSupport={true}
           clickEventForward={true}
@@ -137,14 +145,17 @@ export const Flipbook: React.FC<FlipbookProps> = ({ pages }) => {
           style={{}}
         >
           {pages.map((page, index) => (
-            <div key={index} className="page bg-white flex items-center justify-center">
+            <div
+              key={index}
+              className="page bg-white flex items-center justify-center"
+            >
               <img
                 src={page.src}
                 alt={`Page ${index + 1}`}
                 style={{
-                  height: '100%',
-                  width: 'auto',
-                  objectFit: 'contain',
+                  height: "100%",
+                  width: "auto",
+                  objectFit: "contain",
                 }}
                 draggable={false}
               />
@@ -153,51 +164,88 @@ export const Flipbook: React.FC<FlipbookProps> = ({ pages }) => {
         </HTMLFlipBook>
       </div>
 
-      {/* Navigation Bar */}
-      <div className="absolute bottom-0 left-0 right-0 bg-black/80 backdrop-blur-sm border-t border-white/10 py-3 px-6 z-50">
-        <div className="max-w-4xl mx-auto flex items-center justify-between gap-4">
-          {/* Prev Button */}
+      {/* Desktop Navigation - Circular buttons on left and right */}
+      {!isMobile && (
+        <>
+          {/* Left Navigation Button */}
           <button
             onClick={handlePrev}
             disabled={currentPage === 0}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all ${
+            className={`absolute left-4 top-1/2 -translate-y-1/2 z-50 w-14 h-14 rounded-full flex items-center justify-center transition-all ${
               currentPage === 0
-                ? 'opacity-50 cursor-not-allowed text-gray-400'
-                : 'text-white hover:bg-white/10 active:bg-white/20'
+                ? "opacity-30 cursor-not-allowed bg-black/20"
+                : "bg-black/60 hover:bg-black/80 active:bg-black/90 backdrop-blur-sm text-white"
             }`}
+            aria-label="Previous page"
           >
-            <ChevronLeft size={20} />
-            <span className="hidden sm:inline">Previous</span>
+            <ChevronLeft size={24} />
           </button>
 
-          {/* Progress Bar and Page Info */}
-          <div className="flex-1 flex flex-col items-center gap-2">
-            <div className="w-full max-w-md h-2 bg-white/20 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-white transition-all duration-300"
-                style={{ width: `${((currentPage + 1) / totalPages) * 100}%` }}
-              />
-            </div>
-            <div className="text-white text-sm">
-              Page {currentPage + 1} of {totalPages}
-            </div>
-          </div>
-
-          {/* Next Button */}
+          {/* Right Navigation Button */}
           <button
             onClick={handleNext}
             disabled={currentPage === totalPages - 1}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all ${
+            className={`absolute right-4 top-1/2 -translate-y-1/2 z-50 w-14 h-14 rounded-full flex items-center justify-center transition-all ${
               currentPage === totalPages - 1
-                ? 'opacity-50 cursor-not-allowed text-gray-400'
-                : 'text-white hover:bg-white/10 active:bg-white/20'
+                ? "opacity-30 cursor-not-allowed bg-black/20"
+                : "bg-black/60 hover:bg-black/80 active:bg-black/90 backdrop-blur-sm text-white"
             }`}
+            aria-label="Next page"
           >
-            <span className="hidden sm:inline">Next</span>
-            <ChevronRight size={20} />
+            <ChevronRight size={24} />
           </button>
+        </>
+      )}
+
+      {/* Mobile Navigation Bar - Bottom */}
+      {isMobile && (
+        <div className="absolute bottom-0 left-0 right-0 bg-black/80 backdrop-blur-sm border-t border-white/10 py-3 px-6 z-50">
+          <div className="max-w-4xl mx-auto flex items-center justify-between gap-4">
+            {/* Prev Button */}
+            <button
+              onClick={handlePrev}
+              disabled={currentPage === 0}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all ${
+                currentPage === 0
+                  ? "opacity-50 cursor-not-allowed text-gray-400"
+                  : "text-white hover:bg-white/10 active:bg-white/20"
+              }`}
+            >
+              <ChevronLeft size={20} />
+              <span className="hidden sm:inline">Previous</span>
+            </button>
+
+            {/* Progress Bar and Page Info */}
+            <div className="flex-1 flex flex-col items-center gap-2">
+              <div className="w-full max-w-md h-2 bg-white/20 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-white transition-all duration-300"
+                  style={{
+                    width: `${((currentPage + 1) / totalPages) * 100}%`,
+                  }}
+                />
+              </div>
+              <div className="text-white text-sm">
+                Page {currentPage + 1} of {totalPages}
+              </div>
+            </div>
+
+            {/* Next Button */}
+            <button
+              onClick={handleNext}
+              disabled={currentPage === totalPages - 1}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all ${
+                currentPage === totalPages - 1
+                  ? "opacity-50 cursor-not-allowed text-gray-400"
+                  : "text-white hover:bg-white/10 active:bg-white/20"
+              }`}
+            >
+              <span className="hidden sm:inline">Next</span>
+              <ChevronRight size={20} />
+            </button>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };
